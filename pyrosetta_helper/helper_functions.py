@@ -118,6 +118,39 @@ def score_pose_to_df(input_pose, score_function='ref2015'):
     scored_info_df = pose_df.join(per_res_df.pivot('Pose','score_type','score'))
     return scored_info_df
 
+def score_interface_to_df(input_pose, interface_string, score_function='ref2015'):
+    '''
+        Add interface information to pose dataframe
+    '''
+    ###Pose structure dataframe from 
+    ref2015_sf = create_score_function(score_function)
+    ref2015_sf(input_pose)
+    df = score_pose_to_df(input_pose)
+
+    #Lets use the IAMover
+    iam = rosetta.protocols.analysis.InterfaceAnalyzerMover
+    ia = iam(interface_string,False,ref2015_sf,True,True,True,False)
+    ia.apply(input_pose)
+
+    ri = ia.get_all_per_residue_data()
+    df['InterFaceResidue'] = [i for i in ri.interface_residues]
+    df['SeparatedSASA'] = [i for i in ri.separated_sasa]
+    df['ComplexedSASA'] = [i for i in ri.complexed_sasa]
+    df['dSASA'] = [i for i in ri.dSASA]
+    df['dSASA_sc'] = [i for i in ri.dSASA_sc]
+    df['dhSASA'] = [i for i in ri.dhSASA]
+    df['dhSASA_sc'] = [i for i in ri.dhSASA_sc]
+    df['dhSASA_rel_by_charge'] = [i for i in ri.dhSASA_rel_by_charge]
+    df['SASA'] = [i for i in ri.SASA]
+    df['dSASA_fraction'] = [i for i in ri.dSASA_fraction]
+    df['separated_energy'] = [i for i in ri.separated_energy]
+    df['complexed_energy'] = [i for i in ri.complexed_energy]
+    df['ddG'] = [i for i in ri.dG]
+
+
+    return df 
+
+
 def get_sphere_sasa(input_pose):
     '''return a list of all residues per residue sasa'''
     neighbor_counts = []
@@ -127,18 +160,30 @@ def get_sphere_sasa(input_pose):
         neighbor_count = 0.0
         CB_atom = "CB"
         ##If glycine, then use 1HA 
-        if p.residue(res_target).type().name1() == 'G':
-            CB_atom = "1HA"
+        if p.residue(res_target).has('CB'):
+            CB_atom = 'CB'
+        elif p.residue(res_target).has('1HA'):
+            CB_atom = '1HA'
+        else:
+            print("Target residue {} does not have CB or 1HA".format(p.residue(res_target)))
+            continue
+        #if p.residue(res_target).type().name1() == 'G':
+        #    CB_atom = "1HA"
         for res_neighbor in range(1, num_residues+1):
             ##Dont measure if res_neighbor and target is self
             if res_neighbor == res_target:
                 continue
             else:
-                neighbor_atom = "CB"
-                if p.residue(res_neighbor).type().name1() == 'G':
+                if p.residue(res_neighbor).has('CB'):
+                    neighbor_atom = "CB"
+                elif p.residue(res_neighbor).has('1HA'):
                     neighbor_atom = "1HA"
+                else:
+                   print("Neighbor residue {} does not have CB or 1HA".format(p.residue(res_neighbor)))
+                   continue
+               # p.residue(res_neighbor).type().name1() == 'G':
             distance = p.residue(res_target).xyz(CB_atom).distance(
-                p.residue(res_neighbor).xyz(neighbor_atom))
+                    p.residue(res_neighbor).xyz(neighbor_atom))
             neighbor_count += 1.0/(1.0 + math.exp(1.0*(distance-9.0)))
         neighbor_counts.append(neighbor_count)
     return neighbor_counts
@@ -148,4 +193,6 @@ def get_sphere_sasa(input_pose):
 if __name__ == "__main__":
     init()
     p = pose_from_pdb('2ny7_clean.pdb')
+    print(get_sphere_sasa(p))
     print(pose_structure_df(p))
+    print(score_interface_to_df(p, 'HL_G'))
