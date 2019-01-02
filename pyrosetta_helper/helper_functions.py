@@ -90,7 +90,10 @@ def score_pose_to_df(input_pose, score_function='ref2015'):
     '''
         Add score information to pose dataframe
     '''
-    ###Pose structure dataframe from 
+    ###Pose structure dataframe from
+    # 
+    if isinstance(input_pose,str):
+        input_pose = pose_from_file(input_pose) 
     pose_df = pose_structure_df(input_pose)
     ref2015_sf = create_score_function(score_function)
     ref2015_sf(input_pose)
