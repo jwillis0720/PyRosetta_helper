@@ -74,6 +74,7 @@ def pose_structure_df(pose, display_residues=[]):
     df = pandas.DataFrame(return_list)
     return df.set_index('Pose')
 
+
 def compress_file(file_):
     '''
         Zips a file in place
@@ -86,53 +87,59 @@ def compress_file(file_):
         shutil.copyfileobj(f_in, f_out)
     os.remove(file_)
 
+
 def score_pose_to_df(input_pose, score_function='ref2015'):
     '''
         Add score information to pose dataframe
     '''
-    ###Pose structure dataframe from
-    # 
-    if isinstance(input_pose,str):
-        input_pose = pose_from_file(input_pose) 
+    # Pose structure dataframe from
+    #
+    if isinstance(input_pose, str):
+        input_pose = pose_from_file(input_pose)
     pose_df = pose_structure_df(input_pose)
     ref2015_sf = create_score_function(score_function)
     ref2015_sf(input_pose)
     energies = input_pose.energies()
-    residue_energies = [energies.residue_total_energy(i) for i in range(1, input_pose.total_residue() + 1)]
+    residue_energies = [energies.residue_total_energy(
+        i) for i in range(1, input_pose.total_residue() + 1)]
     pose_df['residue_energy'] = residue_energies
 
     weights = [pyrosetta.rosetta.core.scoring.ScoreType(s)
-        for s in range(1, int(
-            pyrosetta.rosetta.core.scoring.end_of_score_type_enumeration) + 1)
-        if ref2015_sf.weights()[pyrosetta.rosetta.core.scoring.ScoreType(s)]]
+               for s in range(1, int(
+                   pyrosetta.rosetta.core.scoring.end_of_score_type_enumeration) + 1)
+               if ref2015_sf.weights()[pyrosetta.rosetta.core.scoring.ScoreType(s)]]
 
     per_residue_unwiehgts = energies.residue_total_energies
     per_residue_weighted = []
-    for residue_index in range(1,input_pose.total_residue() + 1):
+    for residue_index in range(1, input_pose.total_residue() + 1):
         sum_ = 0.0
         for weight in weights:
-        #print(weight)
+            # print(weight)
             entry = {'Pose': residue_index,
-             'score_type': str(weight).split('.')[-1],
-         'score': per_residue_unwiehgts(residue_index)[weight] * ref2015_sf.weights()[weight]}
+                     'score_type': str(weight).split('.')[-1],
+                     'score': per_residue_unwiehgts(residue_index)[weight] * ref2015_sf.weights()[weight]}
             per_residue_weighted.append(
-            entry)
+                entry)
     per_res_df = pandas.DataFrame(per_residue_weighted)
-    scored_info_df = pose_df.join(per_res_df.pivot('Pose','score_type','score'))
+    scored_info_df = pose_df.join(
+        per_res_df.pivot('Pose', 'score_type', 'score'))
     return scored_info_df
+
 
 def score_interface_to_df(input_pose, interface_string, score_function='ref2015'):
     '''
         Add interface information to pose dataframe
     '''
-    ###Pose structure dataframe from 
+    # Pose structure dataframe from
     ref2015_sf = create_score_function(score_function)
+    if isinstance(input_pose, str):
+        input_pose = pyrosetta.pose_from_pdb(input_pose)
     ref2015_sf(input_pose)
     df = score_pose_to_df(input_pose)
 
-    #Lets use the IAMover
+    # Lets use the IAMover
     iam = rosetta.protocols.analysis.InterfaceAnalyzerMover
-    ia = iam(interface_string,False,ref2015_sf,True,True,True,False)
+    ia = iam(interface_string, False, ref2015_sf, True, True, True, False)
     ia.apply(input_pose)
 
     ri = ia.get_all_per_residue_data()
@@ -150,8 +157,7 @@ def score_interface_to_df(input_pose, interface_string, score_function='ref2015'
     df['complexed_energy'] = [i for i in ri.complexed_energy]
     df['ddG'] = [i for i in ri.dG]
 
-
-    return df 
+    return df
 
 
 def get_sphere_sasa(input_pose):
@@ -159,21 +165,22 @@ def get_sphere_sasa(input_pose):
     neighbor_counts = []
     p = input_pose
     num_residues = p.total_residue()
-    for res_target in range(1,num_residues+1):
+    for res_target in range(1, num_residues+1):
         neighbor_count = 0.0
         CB_atom = "CB"
-        ##If glycine, then use 1HA 
+        # If glycine, then use 1HA
         if p.residue(res_target).has('CB'):
             CB_atom = 'CB'
         elif p.residue(res_target).has('1HA'):
             CB_atom = '1HA'
         else:
-            print("Target residue {} does not have CB or 1HA".format(p.residue(res_target)))
+            print("Target residue {} does not have CB or 1HA".format(
+                p.residue(res_target)))
             continue
-        #if p.residue(res_target).type().name1() == 'G':
+        # if p.residue(res_target).type().name1() == 'G':
         #    CB_atom = "1HA"
         for res_neighbor in range(1, num_residues+1):
-            ##Dont measure if res_neighbor and target is self
+            # Dont measure if res_neighbor and target is self
             if res_neighbor == res_target:
                 continue
             else:
@@ -182,15 +189,15 @@ def get_sphere_sasa(input_pose):
                 elif p.residue(res_neighbor).has('1HA'):
                     neighbor_atom = "1HA"
                 else:
-                   print("Neighbor residue {} does not have CB or 1HA".format(p.residue(res_neighbor)))
-                   continue
-               # p.residue(res_neighbor).type().name1() == 'G':
+                    print("Neighbor residue {} does not have CB or 1HA".format(
+                        p.residue(res_neighbor)))
+                    continue
+                # p.residue(res_neighbor).type().name1() == 'G':
             distance = p.residue(res_target).xyz(CB_atom).distance(
-                    p.residue(res_neighbor).xyz(neighbor_atom))
+                p.residue(res_neighbor).xyz(neighbor_atom))
             neighbor_count += 1.0/(1.0 + math.exp(1.0*(distance-9.0)))
         neighbor_counts.append(neighbor_count)
     return neighbor_counts
-
 
 
 if __name__ == "__main__":
