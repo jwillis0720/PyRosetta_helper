@@ -61,7 +61,8 @@ def pose_structure_df(pose, display_residues=[]):
     return_list = []
     for i in range(1, nres + 1):
         return_list.append(
-            {'PDB': PDB_nums[i-1],
+            {'Pose Name': pdb_info.name(),
+             'PDB': PDB_nums[i-1],
              'Chain': chains[i-1],
              'Pose': i,
              'Residue': sequence[i-1],
