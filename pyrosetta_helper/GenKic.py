@@ -1,5 +1,5 @@
 
-import helper_functions as hf
+from pyrosetta_helper import helper_functions as hf
 import pyrosetta
 from pyrosetta import (
     init,
@@ -24,7 +24,7 @@ def get_bb_only_scorefxn():
     return backbone_sfxn
 
 
-def connect_disembodied_SSE_with_GK(embodiment_pose_1, embodiment_pose_2, connect_with, trial_name='GKTrial'):
+def connect_disembodied_SSE_with_GK(embodiment_pose_1, embodiment_pose_2, connect_with, trial_name='GKTrial', **kwargs):
     pose_a = Pose()
     pose_a.assign(embodiment_pose_1)
 
@@ -78,17 +78,31 @@ def connect_disembodied_SSE_with_GK(embodiment_pose_1, embodiment_pose_2, connec
     # SETUP GK
     gk = pyrosetta.rosetta.protocols.generalized_kinematic_closure.GeneralizedKIC()
 
+    # key words in arguments:
+    GK_KEYS = kwargs.keys()
     # We will select the lowest energy loop
-    gk.set_selector_type('lowest_energy_selector')
+    if 'selector_type' in GK_KEYS:
+        gk.set_selector_type(kwargs.get('selector_type'))
+    else:
+        gk.set_selector_type('lowest_energy_selector')
 
-    # Use a backbone only selector
-    gk.set_selector_scorefunction(get_bb_only_scorefxn())
+    # Use a backbone only score_function
+    if 'selector_scorefunction' in GK_KEYS:
+        gk.set_selector_scorefunction(kwargs.get('selector_scorefunction'))
+    else:
+        gk.set_selector_scorefunction(get_bb_only_scorefxn())
 
     # Try N times
-    gk.set_closure_attempts(100000)
+    if 'closure_attempts' in GK_KEYS:
+        gk.set_closure_attempts(kwargs.get('closure_attempts'))
+    else:
+        gk.set_closure_attempts(100000)
 
     # Start after N solutions found
-    gk.set_min_solution_count(1000)
+    if 'min_solution' in GK_KEYS:
+        gk.set_min_solution_count(kwargs.get('min_solution'))
+    else:
+        gk.set_min_solution_count(1000)
 
     # We want random perterbations in rama space since we don't know what this loop should look like
     gk.add_perturber('randomize_backbone_by_rama_prepro')
@@ -121,16 +135,18 @@ def connect_disembodied_SSE_with_GK(embodiment_pose_1, embodiment_pose_2, connec
     gk.add_filter('loop_bump_check')
 
     # Filter 3 - The two termini residues are off SSE elements, lets enforce that they stay that way
-#     gk.add_filter('backbone_bin')
-#     gk.set_filter_resnum(rebuilt_loop[0])
-#     gk.load_filter_bin_params('ABBA')
-#     gk.set_filter_bin('B')
+    if 'filter_n_term_ABBA' in GK_KEYS:
+        gk.add_filter('backbone_bin')
+        gk.set_filter_resnum(rebuilt_loop[0])
+        gk.load_filter_bin_params('ABBA')
+        gk.set_filter_bin(kwargs.get('filter_n_term_ABBA'))
 
     # Filter 4 - The two termini residues are off SSE elements, lets enforce that they stay that way
-#     gk.add_filter('backbone_bin')
-#     gk.set_filter_resnum(rebuilt_loop[-1])
-#     gk.load_filter_bin_params('ABBA')
-#     gk.set_filter_bin('B')
+    if 'filter_c_term_ABBA' in GK_KEYS:
+        gk.add_filter('backbone_bin')
+        gk.set_filter_resnum(rebuilt_loop[-1])
+        gk.load_filter_bin_params('ABBA')
+        gk.set_filter_bin(kwargs.get('filter_c_term_ABBA'))
 
     # Since we built from N-C, we need to connect the last residue and n-1 residue
     gk.close_bond(rebuilt_loop[-2], 'C',
@@ -145,4 +161,6 @@ def connect_disembodied_SSE_with_GK(embodiment_pose_1, embodiment_pose_2, connec
 
     # And finally apply
     gk.apply(copy_pose)
+    if gk.get_last_move_status() == pyrosetta.rosetta.protocols.moves.FAIL_RETRY:
+        return False
     return copy_pose
