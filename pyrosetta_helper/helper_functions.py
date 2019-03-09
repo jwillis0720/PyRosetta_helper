@@ -9,6 +9,34 @@ import pandas
 import array
 
 
+one_to_three = {
+    'A': 'ALA',
+    'C': 'CYS',
+    'D': 'ASP',
+    'E': 'GLU',
+    'F': 'PHE',
+    'G': 'GLY',
+    'H': 'HIS',
+    'I': 'ILE',
+    'K': 'LYS',
+    'L': 'LEU',
+    'M': 'MET',
+    'N': 'ASN',
+    'P': 'PRO',
+    'Q': 'GLN',
+    'R': 'ARG',
+    'S': 'SER',
+    'T': 'THR',
+    'V': 'VAL',
+    'Y': 'TYR',
+    'W': 'TRP'
+}
+
+
+def get_one_to_three(res):
+    return one_to_three[res]
+
+
 def get_pose_from_pdb_with_chain(path, chain):
     p = PDBParser()
     struct = p.get_structure('TEST', path)
