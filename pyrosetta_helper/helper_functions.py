@@ -117,7 +117,7 @@ def compress_file(file_):
     os.remove(file_)
 
 
-def score_pose_to_df(input_pose, score_function='ref2015'):
+def score_pose_to_df(input_pose, score_function=''):
     '''
         Add score information to pose dataframe
     '''
@@ -126,8 +126,11 @@ def score_pose_to_df(input_pose, score_function='ref2015'):
     if isinstance(input_pose, str):
         input_pose = pose_from_file(input_pose)
     pose_df = pose_structure_df(input_pose)
-    ref2015_sf = create_score_function(score_function)
-    ref2015_sf(input_pose)
+    if not score_function:
+        ref2015_sf = create_score_function('ref2015')
+        score_function = ref2015_sf
+    
+    score_function(input_pose)
     energies = input_pose.energies()
     residue_energies = [energies.residue_total_energy(
         i) for i in range(1, input_pose.total_residue() + 1)]
@@ -136,7 +139,7 @@ def score_pose_to_df(input_pose, score_function='ref2015'):
     weights = [pyrosetta.rosetta.core.scoring.ScoreType(s)
                for s in range(1, int(
                    pyrosetta.rosetta.core.scoring.end_of_score_type_enumeration) + 1)
-               if ref2015_sf.weights()[pyrosetta.rosetta.core.scoring.ScoreType(s)]]
+               if score_function.weights()[pyrosetta.rosetta.core.scoring.ScoreType(s)]]
 
     per_residue_unwiehgts = energies.residue_total_energies
     per_residue_weighted = []
@@ -146,7 +149,7 @@ def score_pose_to_df(input_pose, score_function='ref2015'):
             # print(weight)
             entry = {'Pose': residue_index,
                      'score_type': str(weight).split('.')[-1],
-                     'score': per_residue_unwiehgts(residue_index)[weight] * ref2015_sf.weights()[weight]}
+                     'score': per_residue_unwiehgts(residue_index)[weight] * score_function.weights()[weight]}
             per_residue_weighted.append(
                 entry)
     per_res_df = pandas.DataFrame(per_residue_weighted)
