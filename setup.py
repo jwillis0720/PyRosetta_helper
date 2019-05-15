@@ -4,7 +4,7 @@ from distutils.core import setup
 
 setup(name='pyrosetta_helper',
       version='0.1',
-      description='Useful helper functions for Jordan',
+      description='Useful functions for Manipulating PyRosetta',
       author='Jordan Willis',
       author_email='jwillis0720@gmail.com',
       packages=['pyrosetta_helper'])
