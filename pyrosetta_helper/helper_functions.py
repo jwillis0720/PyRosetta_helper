@@ -32,6 +32,7 @@ one_to_three = {
     'W': 'TRP'
 }
 
+ 
 
 def get_one_to_three(res):
     return one_to_three[res]
@@ -67,6 +68,10 @@ def pose_structure_df(pose, display_residues=[]):
 
     # 2. obtain a list of PDB numbering and icode as a single string
     pdb_info = pose.pdb_info()
+    if pdb_info is None:
+        print('setting PDB Info')
+        #If its none for some reason, lets set it manually
+        pdb_info = rosetta.core.pose.PDBInfo(pose)
     PDB_nums = [(str(pdb_info.number(i)) + pdb_info.icode(i)).strip()
                 for i in range(1, nres + 1)]
     # 3. obtains a list of the chains organized by residue
