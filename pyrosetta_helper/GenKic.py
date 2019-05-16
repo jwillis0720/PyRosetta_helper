@@ -1,5 +1,4 @@
-import pyrosetta.rosetta.protocols.generalized_kinematic_closure.GeneralizedKIC
-
+from pyrosetta.rosetta.protocols.generalized_kinematic_closure import GeneralizedKIC
 
 class GenKic():
     
@@ -14,7 +13,7 @@ class GenKic():
                                self.loop_residues[int(len(self.loop_residues)/2)],
                                self.loop_residues[-1]]
 
-        self.gk_instance = rosetta.protocols.generalized_kinematic_closure.GeneralizedKIC()
+        self.gk_instance = GeneralizedKIC()
         self.selector_type = "lowest_energy_selector"
         self.perturber_type = "randomize_backbone_by_rama_prepro"
         self.closure_attempts = 100000
