@@ -1,15 +1,19 @@
 from pyrosetta import *
+from Bio import Seq, pairwise2
 from Bio.PDB import PDBParser, PDBIO
 from Bio.SubsMat import MatrixInfo as matlist
-from Bio import Seq
-from Bio import pairwise2
+from itertools import combinations
 import math
-import Bio
 import pandas
 import array
 import gzip
 import shutil
 import os
+
+
+#INIT Package, so need this
+from . import GenKic
+from . import DeNovoInterface
 
 
 one_to_three = {
@@ -45,6 +49,14 @@ def get_one_to_three(res):
         str -- three letter
     """
     return one_to_three[res]
+
+def get_pose(pdb):
+    """Get Pose Object from PDB Path
+    
+    Arguments:
+        pdb {path} -- path of PDB file
+    """
+    return pose_from_pdb(pdb)
 
 
 def get_pose_from_pdb_with_chain(path, chain):
@@ -287,33 +299,38 @@ def reverse_pose(p):
         [type] -- [description]
     """
     reversed_pose = Pose()
-    reversed_pose.pdb_info(PDBInfo(reversed_pose))
+    reversed_pose.pdb_info(rosetta.core.pose.PDBInfo(reversed_pose))
     reversed_pose.pdb_info().name('Reverse'+p.pdb_info().name())
 
     for i in range(p.total_residue(),0,-1):
         reversed_pose.append_residue_by_bond(p.residue(i))
     return reversed_pose
 
-def slice_pose(p,start,end):
-    """[summary]
-    
-    Arguments:
-        p {[type]} -- [description]
-        start {[type]} -- [description]
-        end {[type]} -- [description]
-    
-    Returns:
-        [type] -- [description]
-    """
-    '''slice pose and returns a new pose object'''
-    sliced = Pose()
-    sliced.pdb_info(PDBInfo(sliced))
-    sliced.pdb_info().name('sliced_{}_{}'.format(start,end)+p.pdb_info().name())
+def slice_pose(p,start,end,retain_pdb=True):
 
+    sliced = Pose()
+    disulfides = []
     if end > p.size() or start > p.size():
         return "end/start slice is longer than total lenght of pose {} {}".format(start,end) 
-    for i in range(start,end+1):
+    for dis_index, i in enumerate(range(start,end+1),start=1):
+        #print(p.residue(i).name())
+        if p.residue(i).name() == 'CYS:disulfide':
+            disulfides.append(dis_index)
         sliced.append_residue_by_bond(p.residue(i))
+
+
+    pdb_info = rosetta.core.pose.PDBInfo(sliced)
+    if retain_pdb:
+        pdb_info.copy(p.pdb_info(),start,end,1)
+    sliced.pdb_info(pdb_info)
+    ##We could check if the disulfide mate is in here, but I think it's a little to complicated
+    if disulfides:
+        for disulfide in disulfides:
+            print('unsetting {}'.format(disulfide))
+            mr = pyrosetta.rosetta.protocols.simple_moves.MutateResidue()
+            mr.set_target(disulfide)
+            mr.set_res_name('CYS')
+            mr.apply(sliced)
     return sliced
 
 def join_poses(pose_A, pose_B):
@@ -327,15 +344,18 @@ def join_poses(pose_A, pose_B):
      
 
     
+def find_current_disulfides(p):
+    disulfds = []   
+    pairs = []
+    for r in range(1,p.size()+1):
+        if p.residue(r).type().is_disulfide_bonded():
+            disulfds.append(r)
+    for tupe in combinations(disulfds,2):
+        if p.residue(tupe[0]).is_bonded(p.residue(tupe[1])):
+            pairs.append(tupe)
+    return pairs
+
 def fill_pose_with_pdb(p,chain='A'):
-    """[summary]
-    
-    Arguments:
-        p {[type]} -- [description]
-    
-    Keyword Arguments:
-        chain {str} -- [description] (default: {'A'})
-    """
     pdb_info = p.pdb_info()
     for pdb in range(1,p.total_residue()+1):
-        pdb_info.set_resinfo(pdb,'A',pdb)  
+        pdb_info.set_resinfo(pdb,'A',pdb) 
