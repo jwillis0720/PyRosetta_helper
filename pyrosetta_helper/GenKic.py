@@ -1,8 +1,5 @@
-from pyrosetta import (
-    rosetta.protocols.generalized_kinematic_closure.GeneralizedKIC,
-    create_score_function,
+import pyrosetta.rosetta.protocols.generalized_kinematic_closure.GeneralizedKIC
 
-)
 
 class GenKic():
     
