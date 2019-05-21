@@ -1,54 +1,77 @@
 from pyrosetta.rosetta.protocols.generalized_kinematic_closure import GeneralizedKIC
-
+from pyrosetta import create_score_functions
 class GenKic():
     
     def __init__(self, loop_residues):
-        '''           
-        loop_resiues = list of residues involved in GK
-       
-        '''
+        """VK Mulligans insanely customizable GenKic algorithm adapted to PyRosetta
         
+        Arguments:
+            loop_residues {list} -- list of pose residues that will be rebuilt in the GenKic Protocol
+        
+        it is imperative that you read V. Mulligan tutorials to have any idea what the hell is going on. Currently this is behind
+        the RosettaCommons Firwall
+        https://github.com/RosettaCommons/demos/blob/master/tutorials/GeneralizedKIC/generalized_kinematic_closure_1.md
+        
+        """
+        ##Make an Instance
+        self.gk_instance = GeneralizedKIC()
+        
+        ##Pose Numbering of residues to consider in the GK. Can be a loop. or Whatever you want actually
         self.loop_residues = loop_residues
+        
+        for res_num in self.loop_residues:
+            self.gk_instance.add_loop_residue(res_num)
+        
+        #The residues to pivot around GK, Uses, again see part1 of VK tutorial 
         self.pivot_residues = [self.loop_residues[0], 
                                self.loop_residues[int(len(self.loop_residues)/2)],
                                self.loop_residues[-1]]
 
-        self.gk_instance = GeneralizedKIC()
-        self.selector_type = "lowest_energy_selector"
-        self.perturber_type = "randomize_backbone_by_rama_prepro"
+
+        ###Here are some basics we can set in the constructor but also have the option to set somewhere else
         self.closure_attempts = 100000
         self.min_solutions = 1
         self.scorefxn = create_score_function('ref2015')
         
         ##Defaults
-        #1. Make sure PIVOT ATAMS ober RAMA
+        #1. Make sure PIVOT atoms obey rama space
         self.filter_pivot = True
-        self.filter_loop_bump = True
-        self.dihedral_perturb_value = 3.0
-       
-    def set_pivot_residues(self,pivot_residues):
         
+        #2. Make the loop not bump into itself, i'm not sure why it would ever be off
+        self.filter_loop_bump = True
+        
+        #Every dihedral perterbation will be boltzman dist around this value
+        self.dihedral_perturb_value = 3.0
+        
+    
+    def set_scorefxn(self,s):
+        self.scorefxn = s
+       
+    def get_gk_selectors(self):
+        return selectors
+    
+    def get_gk_perturbors(self):
+        return perturbers
+        
+    def set_pivot_residues(self,pivot_residues):
         self.pivot_residues = pivot_residues
     
     def set_dihedral_pertub_value(self,value):
         self.dihedral_perturb_value = value
-    
-    def close_normal_bond(self,first_residue,second_residue):
-        self.gk_instance.close_bond(
-            first_residue, 'C',
-            second_residue, 'N',
-            first_residue, 'C', 
-            second_residue, 'N',
-                1.32,
-                114,
-                123,
-                180.,False, False)
         
     def set_selector_type(self,selector_type):
         self.selector_type = selector_type
         
-    def set_perturber_type(self,perturber_type):
-        self.perturber_type = perturber_type
+    def set_omega_angles(self,omega_value=180):
+        print('Setting Omega Angles')
+        time.sleep(1)
+        self.gk_instance.add_perturber('set_dihedral')
+        for res_num in self.loop_residues[:-1]:
+            omega_atoms = vector1_core_id_NamedAtomID()
+            omega_atoms.append(pyrosetta.rosetta.core.id.NamedAtomID('C',res_num))
+            omega_atoms.append(pyrosetta.rosetta.core.id.NamedAtomID('N',res_num+1))
+            self.gk_instance.add_atomset_to_perturber_atomset_list(omega_atoms)
+        self.gk_instance.add_value_to_perturber_value_list(omega_value)
 
 
     def set_closure_attempts(self,closure_attempts):
@@ -63,16 +86,105 @@ class GenKic():
         
     def set_filter_pivot(self,boolean):
         self.filter_pivot = boolean
-
-    def get_instance(self):
-        '''Get the instance back with everything set'''
         
+    def close_normal_bond(self,r1,r2):
+        self.gk_instance.close_bond(
+            r1, 'C',
+            r2, 'N',
+            r1, 'CA', 
+            r2, 'CA',
+            1.32829, #ideal bond length
+            116.2, #ideal bond angle 1 N-C-CA
+            121.7, #ideal bond angle 2 CA-N-C
+            180.,
+            False, 
+            False)
+        
+    def set_atom_pair_filter(self,r1,r2,a1,a2,d,gt=False):
+        self.gk_instance.add_filter('atom_pair_distance')
+        self.gk_instance.add_filter_parameter("atom1", a1)
+        self.gk_instance.add_filter_parameter("atom2",a2)
+        self.gk_instance.add_filter_parameter("res1", r1)
+        self.gk_instance.add_filter_parameter("res2", r2)
+        self.gk_instance.add_filter_parameter("distance", d)
+        if gt:
+            self.gk_instance.add_filter_parameter("greater_than", True)
+        
+    def set_rama_prepro_check(self,r,e=1.0):
+        if r not in self.rama_residues:
+            self.gk_instance.add_filter('rama_prepro_check')
+            self.gk_instance.set_filter_resnum(r)
+            self.gk_instance.set_filter_rama_cutoff_energy(e)
+            self.rama_residues.append(r)
+        else:
+            print('Residue {} already being checked by rama prepro filter'.format(r))
+        
+    def set_backbone_bin(self,r,b,bin_params_file='ABEGO'):
+        '''
+        Designation that indicates a residue's position in Ramachandran space (A = right-handed alpha or 310 helix; B = right-handed beta strands and extended conformations; E = left-handed beta strands; G = left-handed helices) and cis         omega angles (O). See citation here.
+        '''
+        if r not in self.rama_bin_residues:
+            self.gk_instance.add_filter('backbone_bin')
+            self.gk_instance.set_filter_resnum(r)
+            self.gk_instance.load_filter_bin_params(bin_params_file)
+            self.gk_instance.set_filter_bin(b)
+        else:
+            print('Residue {} already being checked by backbone bin filter'.format(r))
+      
+    def add_residue_to_loop(self,r):
+       self.gk_instance.add_loop_residue(r)
+       
+        
+    def add_residues_to_perturb_rama(self,r):    
+        self.gk_instance.add_perturber('randomize_backbone_by_rama_prepro')
+        self.gk_instance.add_residue_to_perturber_residue_list(r)
+     
+    def add_residue_to_set_backbone_bin(self,r,b):
+        
+        '''Randomly select mainchain torsions from within a mainchain torsion bin (effect="set_backbone_bin")
+This perturber takes a user-specified bin and bin transitions probability file, and randomly chooses mainchain torsions for specified residues from within that bin. The perturber has two additional input options: a bin transitions probability file (bin_params_file="filename.bin_params") and a bin (bin="binname"), where the bin must match a bin named in the bin transitions probability file. Note that the selection of torsion angles from within a bin is based on the sub-bin distribution specified in the bin transitions probability file; it can be uniform or based on the Ramachandran distribution for an alpha-amino acid. (See the file type documentation for details on this.)'''
+        self.gk_instance.add_perturber('set_backbone_bin')
+        self.gk_instance.add_residue_to_perturber_residue_list(r)
+        self.gk_instance.load_perturber_bin_params('ABEGO')
+        self.gk_instance.set_perturber_bin(b)
+        
+    
+    
+    
+    def add_residue_to_perturb_dihedral(self,r):
+        self.gk_instance.add_perturber('perturb_dihedral')
+        phi_atomlist = vector1_core_id_NamedAtomID()
+        psi_atomlist = vector1_core_id_NamedAtomID()    
+        ###PHI
+        ##C(-1)-N-Cα-C
+        phi_atomlist.append(
+            pyrosetta.rosetta.core.id.NamedAtomID('N',r))
+        phi_atomlist.append(
+            pyrosetta.rosetta.core.id.NamedAtomID('CA',r))
+
+        self.gk_instance.add_atomset_to_perturber_atomset_list(phi_atomlist)
+        self.gk_instance.add_value_to_perturber_value_list(self.dihedral_perturb_value)
+
+        print("Set Residue {} PHI in Perturber by {}".format(r,self.dihedral_perturb_value))
+
+        ###PSI
+        ##N-Cα-C-N(+1)
+        psi_atomlist.append(
+            pyrosetta.rosetta.core.id.NamedAtomID('CA',r))
+        psi_atomlist.append(
+            pyrosetta.rosetta.core.id.NamedAtomID('C',r))
+
+        self.gk_instance.add_atomset_to_perturber_atomset_list(psi_atomlist)
+        self.gk_instance.add_value_to_perturber_value_list(self.dihedral_perturb_value)
+        print("Set Residue {} Psi in Perturber by {}".format(r,self.dihedral_perturb_value))
+
+    
+    def get_instance(self):        
+        '''Get the instance back with everything set'''
         #Selector
         self.gk_instance.set_selector_type(self.selector_type)
         
-        #Set perturber
-        self.gk_instance.add_perturber(self.perturber_type)
-        
+
         #Set closure attempts
         self.gk_instance.set_closure_attempts(self.closure_attempts)
         
@@ -81,24 +193,7 @@ class GenKic():
         
         #Set selector scorefunction
         self.gk_instance.set_selector_scorefunction(self.scorefxn)
-        
-        ##ADD LOOP to PERTURBER AND LoopSet
-        for res_num in self.loop_residues:
-            self.gk_instance.add_loop_residue(res_num)
-            if self.perturber_type == 'randomize_backbone_by_rama_prepro':
-                self.gk_instance.add_residue_to_perturber_residue_list(res_num)
-                
-            if self.perturber_type == 'perturb_dihedral':
-                for res_num in self.loop_residues:
-                    atomlist_1,atomlist_2 = vector1_core_id_NamedAtomID(), vector1_core_id_NamedAtomID()
-                    atomlist_1.append(pyrosetta.rosetta.core.id.NamedAtomID('N',res_num))
-                    atomlist_1.append(pyrosetta.rosetta.core.id.NamedAtomID('CA',res_num))
-                    atomlist_2.append(pyrosetta.rosetta.core.id.NamedAtomID('CA',res_num))
-                    atomlist_2.append(pyrosetta.rosetta.core.id.NamedAtomID('C',res_num))
-                    self.gk_instance.add_atomset_to_perturber_atomset_list(atomlist_1)
-                    self.gk_instance.add_value_to_perturber_value_list(self.dihedral_perturb_value) 
-                    self.gk_instance.add_atomset_to_perturber_atomset_list(atomlist_2)
-                    self.gk_instance.add_value_to_perturber_value_list(self.dihedral_perturb_value) 
+                        
 
         ##ADD PIVOT ATOMS
         self.gk_instance.set_pivot_atoms(
@@ -109,177 +204,10 @@ class GenKic():
         #Rama prepro check on pivot_residues
         if self.filter_pivot:  
             for p in self.pivot_residues:
-                self.gk_instance.add_filter('rama_prepro_check')
-                self.gk_instance.set_filter_resnum(p)
-                self.gk_instance.set_filter_rama_cutoff_energy(2.0)
+                self.set_rama_prepro_check(p)
     
+        #Self Loop Bump
         if self.filter_loop_bump:  
             self.gk_instance.add_filter('loop_bump_check')
         
-        
         return self.gk_instance
-        
-
-    
-def rebuild_with_GenKic(working_pose, native_pose,from_residue=0,to_residue=0,repeats=5):
-    '''rebuild whole peptide with GenKic'''    
-
-    # Go through rebuilt_loop and add those inddexes
-    rebuilt_loop = []
-    if from_residue == 0:
-        #Have to start at second residue
-        from_residue = 2
-    if to_residue == 0:
-        to_residue = working_pose.size()-1
-    
-    for res_num in range(from_residue, to_residue+1):
-        rebuilt_loop.append(res_num)
-    print(rebuilt_loop)
-
-    pm.keep_history(True)
-    
-    #Setup GK
-    gen_kic_object = GenKic(rebuilt_loop)
-    gen_kic_object.set_perturber_type('perturb_dihedral')
-    gen_kic_object.set_dihedral_pertub_value = 5.0
-    gen_kic_object_instance = gen_kic_object.get_instance()
-
-    
-    
-    #pyrosetta.rosetta.core.scoring.CA_rmsd(working_pose,)
-    scorefxn = create_score_function('ref2015')
-    poses = []
-    for x in range(1,repeats):
-        while True:
-            copy_pose = Pose()
-            copy_pose.assign(working_pose)
-            gen_kic_object_instance.apply(copy_pose)
-            rmsd = pyrosetta.rosetta.core.scoring.CA_rmsd(working_pose,copy_pose)
-            if rmsd < 2.5:
-                fd = fast_design('site1.resfile',working_pose)
-                fd.apply(copy_pose)
-                scorefxn(copy_pose)
-                poses[scorefxn(copy_pose)] = copy_pose
-                break
-                #print("Yaya!!!")
-                #pm.apply(copy_pose)
-                #return copy_pose
-                
-                
-    winning_pose = Pose()
-    winning_pose.assign(poses[sorted(poses)[0]])        
-    return winning_pose    
-
-def connect_disembodied_SSE_with_GK(embodiment_pose_1, 
-                                    embodiment_pose_2, 
-                                    connect_with,repeats=10,design=False):
-    
-    pose_a = Pose()
-    pose_a.assign(embodiment_pose_1)
-
-    pose_b = Pose()
-    pose_b.assign(embodiment_pose_2)
-
-    # Setup CHEMICAL MANAGER TO MAKE NEW RESIDUES
-    chm = pyrosetta.rosetta.core.chemical.ChemicalManager.get_instance()
-    rts = chm.residue_type_set('fa_standard')
-
-    def rtn_residue(x): return pyrosetta.rosetta.core.conformation.ResidueFactory.create_residue(
-        rts.name_map(x))
-
-    # Residue objects of the connecting loop
-    connecting_loop_objects = [rtn_residue(hf.get_one_to_three(i))
-                       for i in list(connect_with)]
-
-    # Will keep track of indexing of rebuilt loop
-    rebuilt_loop = []
-
-    # Get last residue postion on the first pose
-    last_residue_on_c_terminus = pose_a.size()
-    
-    # First residue to rebuilt
-    rebuilt_loop.append(last_residue_on_c_terminus)
-    pose_a.set_omega(last_residue_on_c_terminus, 180.1)
-
-    # Iterate through connecting loop and connect it to pose 1
-    for resi in connecting_loop_objects:
-        pose_a.append_residue_by_bond(resi, True)
-        # Add to the index since we added it
-        last_residue_on_c_terminus += 1
-        rebuilt_loop.append(last_residue_on_c_terminus)
-        # And set that omega angle to 180
-        pose_a.set_omega(last_residue_on_c_terminus, 180.)
-
-    # Iterate through pose 2 and connect to the C term of the loop we just added
-    for residue_index in range(1, pose_b.total_residue()+1):
-        pose_a.append_residue_by_bond(
-            pose_b.residue(residue_index))
-
-    # Since we are adding a pose, we don't have to rebuild it with GENKIC. 
-    #But we should add the Nterm of POSE2
-    rebuilt_loop.append(last_residue_on_c_terminus+1)
-    #Setup GK
-    gen_kic_object = GenKic(rebuilt_loop)
-    gen_kic_object.close_normal_bond(rebuilt_loop[-2],rebuilt_loop[-1])
-    gk_instance = gen_kic_object.get_instance()
-    
-    native_pose = Pose()
-    native_pose.assign(pose_a)
-    
-    pm.keep_history(True)
-    
-    scorefxn = create_score_function('ref2015')
-    poses = {}
-    for x in range(0,repeats):
-        copy_pose = Pose()
-        copy_pose.assign(native_pose)
-        fill_pose_with_pdb(copy_pose)
-        gk_instance.apply(copy_pose)
-        
-        if design:
-            pm.apply(copy_pose)
-            with open('/tmp/Temp.resfile','w') as f:
-                f.write('NATAA\nEX 1 EX 2\nUSE_INPUT_SC\nstart\n')
-                for line in rebuilt_loop[1:-1]:
-                    print('designing res {}'.format(line))
-                    f.write('{} A NOTAA CM\n'.format(line))
-            fd = fast_design('/tmp/Temp.resfile',native=copy_pose,rounds=1)
-            fd.apply(copy_pose)
-            copy_pose.pdb_info().name('Design_{}'.format(x))
-        scorefxn(copy_pose)
-        poses[scorefxn(copy_pose)] = copy_pose
-        pm.apply(copy_pose)
-    winning_pose = Pose()
-    winning_pose.assign(poses[sorted(poses)[0]])
-    
-    return winning_pose
-            
-    
-def relax_mover():
-    # Easy Fast Relax Mover
-    score_high = pyrosetta.create_score_function('ref2015')
-    fr = pyrosetta.rosetta.protocols.relax.FastRelax(score_high, standard_repeats=3)
-    fr.constrain_relax_to_start_coords(True)
-    return fr
-    #fr.apply(p)
-
-def fast_design(resfile,native="",rounds=3):
-    tf = pyrosetta.rosetta.core.pack.task.TaskFactory()
-
-    # These three are pretty standard
-    tf.push_back(pyrosetta.rosetta.core.pack.task.operation.ReadResfile(resfile))
-
-
-    #Score Function
-    sf = pyrosetta.create_score_function('ref2015')
-
-    #Fast Relax Mover
-    fr = pyrosetta.rosetta.protocols.relax.FastRelax(sf,rounds)
-
-    if native:
-        fr.set_native_pose(native)
-        fr.constrain_relax_to_native_coords(True)
-    
-    #Set task factory
-    fr.set_task_factory(tf)
-    return fr
