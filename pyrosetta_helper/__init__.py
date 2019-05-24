@@ -12,7 +12,7 @@ import os
 
 
 #INIT Package, so need this
-from GenKic import GenKic
+from .GenKic import GenKic
 
 __all__ = ["GenKic","get_one_to_three","get_pose_from_pdb_with_chain",
 "get_pose","pose_structure_df","compress_file","score_pose_to_df","score_interface_to_df",
@@ -59,7 +59,6 @@ def get_pose(pdb):
         pdb {path} -- path of PDB file
     """
     return pose_from_pdb(pdb)
-
 
 def get_pose_from_pdb_with_chain(path, chain):
     """Given a PDB file path, return a Pose Object of just the Chain
@@ -143,7 +142,6 @@ def pose_structure_df(pose, display_residues=[]):
     df = pandas.DataFrame(return_list)
     return df.set_index('Pose')
 
-
 def compress_file(file_):
     """Compress File
     
@@ -154,7 +152,6 @@ def compress_file(file_):
     with open(file_, 'rb') as f_in, gzip.open(file_+'.gz', 'wb') as f_out:
         shutil.copyfileobj(f_in, f_out)
     os.remove(file_)
-
 
 def score_pose_to_df(input_pose, score_function=''):
     """[summary]
@@ -200,7 +197,6 @@ def score_pose_to_df(input_pose, score_function=''):
         per_res_df.pivot('Pose', 'score_type', 'score'))
     return scored_info_df
 
-
 def score_interface_to_df(input_pose, interface_string, score_function='ref2015'):
     """[summary]
     
@@ -242,7 +238,6 @@ def score_interface_to_df(input_pose, interface_string, score_function='ref2015'
     df['ddG'] = [i for i in ri.dG]
 
     return df
-
 
 def get_sphere_sasa(input_pose):
     """[summary]
@@ -289,7 +284,6 @@ def get_sphere_sasa(input_pose):
             neighbor_count += 1.0/(1.0 + math.exp(1.0*(distance-9.0)))
         neighbor_counts.append(neighbor_count)
     return neighbor_counts
-
 
 def reverse_pose(p):
     """[summary]
@@ -345,8 +339,15 @@ def join_poses(pose_A, pose_B):
     return p
      
 
-    
 def find_current_disulfides(p):
+    """[summary]
+    
+    Arguments:
+        p {[type]} -- [description]
+    
+    Returns:
+        [type] -- [description]
+    """
     disulfds = []   
     pairs = []
     for r in range(1,p.size()+1):
@@ -358,6 +359,14 @@ def find_current_disulfides(p):
     return pairs
 
 def fill_pose_with_pdb(p,chain='A'):
+    """Fill pose with PDB info
+    
+    Arguments:
+        p {Pose} -- PyRosetta Pose Options 
+    
+    Keyword Arguments:
+        chain {str} -- chain character (default: {'A'})
+    """
     pdb_info = p.pdb_info()
     for pdb in range(1,p.total_residue()+1):
         pdb_info.set_resinfo(pdb,'A',pdb) 

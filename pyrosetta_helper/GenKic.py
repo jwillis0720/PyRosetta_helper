@@ -66,6 +66,9 @@ class GenKic:
         self.pivot_residues = p_residues
         assert len(self.pivot_residues) == 3
 
+    def get_pivot_residues(self):
+        return self.pivot_residues
+
     def set_closure_attempts(self, closure_attempts):
         """set_closure_attempts How many times should we attempt gen kic
 
@@ -99,6 +102,12 @@ class GenKic:
         """
 
         self.filter_pivot = b
+
+    def set_selector_type(self,s):
+        if s not in self.get_gk_selectors():
+            raise Exception('{} not in {}'.format(self.get_gk_selectors()))
+        else:
+            self.selector = s
 
     def get_gk_selectors(self):
         return [
@@ -147,11 +156,11 @@ class GenKic:
             a2 {[type]} -- [description]
             d {[type]} -- [description]
         """
-        print("Setting Dihedrals")
+        #print("Setting Dihedrals")
         self.gk_instance.add_perturber("set_dihedral")
         atomset = vector1_core_id_NamedAtomID()
-        atomset.append(NamedAtomId(a1, r1))
-        atomset.append(NamedAtomId(a2, r2))
+        atomset.append(NamedAtomID(a1, r1))
+        atomset.append(NamedAtomID(a2, r2))
         self.gk_instance.add_atomset_to_perturber_atomset_list(atomset)
         self.gk_instance.add_value_to_perturber_value_list(d)
 
@@ -168,8 +177,8 @@ class GenKic:
         print("Setting Bond angle")
         self.gk_instance.add_perturber("set_bondangle")
         atomset = vector1_core_id_NamedAtomID()
-        atomset.append(NamedAtomId(a1, r1))
-        atomset.append(NamedAtomId(a2, r2))
+        atomset.append(NamedAtomID(a1, r1))
+        atomset.append(NamedAtomID(a2, r2))
         self.gk_instance.add_atomset_to_perturber_atomset_list(atomset)
         self.gk_instance.add_value_to_perturber_value_list(d)
 
@@ -186,8 +195,8 @@ class GenKic:
         print("Setting Bond Lengths")
         self.gk_instance.add_perturber("set_bondlength")
         atomset = vector1_core_id_NamedAtomID()
-        atomset.append(NamedAtomId(a1, r1))
-        atomset.append(NamedAtomId(a2, r2))
+        atomset.append(NamedAtomID(a1, r1))
+        atomset.append(NamedAtomID(a2, r2))
         self.gk_instance.add_atomset_to_perturber_atomset_list(atomset)
         self.gk_instance.add_value_to_perturber_value_list(d)
 
@@ -295,8 +304,8 @@ class GenKic:
         """
         self.gk_instance.add_perturber("perturb_dihedral")
         atomset = vector1_core_id_NamedAtomID()
-        atomset.append(NamedAtomId(a1, r1))
-        atomset.append(NamedAtomId(a2, r2))
+        atomset.append(NamedAtomID(a1, r1))
+        atomset.append(NamedAtomID(a2, r2))
         self.gk_instance.add_atomset_to_perturber_atomset_list(atomset)
         self.gk_instance.add_value_to_perturber_value_list(d)
 
@@ -319,7 +328,6 @@ class GenKic:
         self.gk_instance.set_perturber_must_switch_bins(switch)
 
     """Filters"""
-
     def set_filter_loop_bump_check(self):
         """set_loop_bump_check 
         This applies a very simple, low-stringency bump check to each solution found, discarding solutions with obvious clashes. 
@@ -435,7 +443,7 @@ class GenKic:
         """Get the instance back with everything set"""
         # Selector
         if self.selector:
-            self.gk_instance.set_selector_type(self.selector_type)
+            self.gk_instance.set_selector_type(self.selector)
 
         else:
             return self.get_gk_selectors()
