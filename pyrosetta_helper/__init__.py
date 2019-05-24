@@ -81,7 +81,6 @@ def get_pose_from_pdb_with_chain(path, chain):
     os.remove('/tmp/mypdb.pdb')
     return pose
 
-
 def pose_structure_df(pose, display_residues=[]):
     """Given a Pose Object, return a DataFrame of all info
     
@@ -124,7 +123,9 @@ def pose_structure_df(pose, display_residues=[]):
     DSSP = rosetta.protocols.moves.DsspMover()
     DSSP.apply(pose)    # populates the pose's Pose.secstruct
     ss = pose.secstruct()
-
+    am = rosetta.core.sequence.ABEGOManager()
+    abego_string = am.get_abego_string(am.get_symbols(pose))
+    
     return_list = []
     for i in range(1, nres + 1):
         return_list.append(
@@ -137,6 +138,7 @@ def pose_structure_df(pose, display_residues=[]):
              'Psi': psis[i-1],
              'Omega': omegas[i-1],
              'SS': ss[i-1],
+             'ABEGO':abego_string[i-1],
              'Resi3': pose.residue(i).name()})
 
     df = pandas.DataFrame(return_list)
