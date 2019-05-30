@@ -220,8 +220,8 @@ class GenKic:
 
         self.gk_instance.add_perturber("set_backbone_bin")
         self.gk_instance.add_residue_to_perturber_residue_list(r)
-        self.gk_instance.set_perturber_bin(bin)
-        self.gk_instance.add_value_to_perturber_value_list(b)
+        self.gk_instance.load_perturber_bin_params(bin)
+        self.gk_instance.set_perturber_bin(b)
 
     def randomize_dihedral(self, r1, r2, a1, a2):
         """randomize_dihedral 
@@ -238,8 +238,8 @@ class GenKic:
 
         self.gk_instance.add_perturber("randomize_dihedral")
         atomset = vector1_core_id_NamedAtomID()
-        atomset.append(NamedAtomId(a1, r1))
-        atomset.append(NamedAtomId(a2, r2))
+        atomset.append(NamedAtomID(a1, r1))
+        atomset.append(NamedAtomID(a2, r2))
         self.gk_instance.add_atomset_to_perturber_atomset_list(atomset)
 
     def randomize_alpha_backbone_by_rama(self, r, custom_rama_table=""):
