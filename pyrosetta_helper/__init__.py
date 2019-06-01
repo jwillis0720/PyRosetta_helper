@@ -13,6 +13,8 @@ import os
 
 #INIT Package, so need this
 from .GenKic import GenKic
+from .BluePrintManager import BluePrintManager
+from .BluePrintManager import BluePrintEntity
 
 __all__ = ["GenKic","get_one_to_three","get_pose_from_pdb_with_chain",
 "get_pose","pose_structure_df","compress_file","score_pose_to_df","score_interface_to_df",
