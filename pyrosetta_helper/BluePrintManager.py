@@ -1,4 +1,4 @@
-from pyrosetta_helper import pose_structure_df
+import pyrosetta_helper
 
 class BluePrintEntity():
     '''
@@ -53,7 +53,7 @@ class BluePrintManager():
             self._make_blueprint_from_pose()
             
     def _make_blueprint_from_pose(self):        
-        pose_df = pose_structure_df(self.pose)
+        pose_df = pyrosetta_helper.pose_structure_df(self.pose)
         index = 1
         for key,val in pose_df.iterrows():
             #print(key,val)

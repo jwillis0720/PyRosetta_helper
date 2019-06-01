@@ -16,9 +16,10 @@ from .GenKic import GenKic
 from .BluePrintManager import BluePrintManager
 from .BluePrintManager import BluePrintEntity
 
-__all__ = ["GenKic","get_one_to_three","get_pose_from_pdb_with_chain",
+__all__ = ["GenKic","BluePrintManager",'BluePrintEntity',"get_one_to_three","get_pose_from_pdb_with_chain",
 "get_pose","pose_structure_df","compress_file","score_pose_to_df","score_interface_to_df",
-"get_sphere_sasa","reverse_pose","slice_pose","join_poses","find_current_disulfides"]
+"get_sphere_sasa","reverse_pose","slice_pose","join_poses","find_current_disulfides","mutate_position",
+"crudely_connect_w_loop", "append_c_term", "prepend_n_term", "enforce_termini"]
 #from . import DeNovoInterface
 one_to_three = {
     'A': 'ALA',
@@ -342,7 +343,6 @@ def join_poses(pose_A, pose_B):
         p.append_residue_by_bond(pose_B.residue(residue))
     return p
      
-
 def find_current_disulfides(p):
     """[summary]
     
@@ -374,3 +374,127 @@ def fill_pose_with_pdb(p,chain='A'):
     pdb_info = p.pdb_info()
     for pdb in range(1,p.total_residue()+1):
         pdb_info.set_resinfo(pdb,'A',pdb) 
+
+def mutate_position(pose,position,mutate):
+    mr = pyrosetta.rosetta.protocols.simple_moves.MutateResidue()
+    mr.set_target(position)
+    mr.set_res_name(mutate)
+    mr.apply(pose)
+
+def crudely_connect_w_loop(n_term_pose,c_term_pose,connect_with):
+    
+    pose_a = pyrosetta.Pose()
+    pose_a.assign(n_term_pose)
+    pose_a.pdb_info().assign(n_term_pose.pdb_info())
+
+    pose_b = pyrosetta.Pose()
+    pose_b.assign(c_term_pose)
+    pose_b.pdb_info().assign(c_term_pose.pdb_info())
+
+
+    # Setup CHEMICAL MANAGER TO MAKE NEW RESIDUES
+    chm = pyrosetta.rosetta.core.chemical.ChemicalManager.get_instance()
+    rts = chm.residue_type_set('fa_standard')
+    get_residue_object = lambda x: pyrosetta.rosetta.core.conformation.ResidueFactory.create_residue(
+        rts.name_map(x))
+    
+    # Will keep track of indexing of rebuilt loop
+    rebuilt_loop = []
+
+    print("Setting N Term Pose Residue {} to 180".format(pose_a.total_residue()))
+    pose_a.set_omega(pose_a.total_residue(), 180.1)
+    
+
+    ##ADD the String as a crudly put together loop
+    for one_letter in connect_with:
+        resi = get_residue_object(get_one_to_three(one_letter))
+        pose_a.append_residue_by_bond(resi, True)
+        rebuilt_loop.append(pose_a.total_residue())
+        # And set that omega angle to 180
+        print("Setting N Term Pose Residue {} to 180".format(pose_a.total_residue()))
+        pose_a.set_omega(pose_a.total_residue(), 180.)
+        pose_a.pdb_info().chain(
+            pose_a.total_residue(),pose_a.pdb_info().chain(pose_a.total_residue()-1))
+
+    
+    ##ADD pose b to the end of Pose A
+    for residue_index in range(1, pose_b.total_residue()+1):
+        pose_a.append_residue_by_bond(
+            pose_b.residue(residue_index))
+        pose_a.pdb_info().copy(pose_b.pdb_info(),residue_index,residue_index,pose_a.total_residue())
+
+    return rebuilt_loop, pose_a
+
+def append_c_term(n_term, loop):
+    pose_a = pyrosetta.Pose()
+    pose_a.assign(n_term)
+    pose_a.pdb_info().assign(n_term.pdb_info())
+
+
+
+    # Setup CHEMICAL MANAGER TO MAKE NEW RESIDUES
+    chm = pyrosetta.rosetta.core.chemical.ChemicalManager.get_instance()
+    rts = chm.residue_type_set('fa_standard')
+    get_residue_object = lambda x: pyrosetta.rosetta.core.conformation.ResidueFactory.create_residue(
+        rts.name_map(x))
+
+    # Will keep track of indexing of rebuilt loop
+    rebuilt_loop = []
+
+    print("Setting N Term Pose Residue {} to 180".format(pose_a.total_residue()))
+    pose_a.set_omega(pose_a.total_residue(), 180.1)
+
+
+    ##ADD the String as a crudly put together loop
+    for one_letter in loop:
+        resi = get_residue_object(get_one_to_three(one_letter))
+        pose_a.append_residue_by_bond(resi, True)
+        rebuilt_loop.append(pose_a.total_residue())
+        # And set that omega angle to 180
+        print("Setting N Term Pose Residue {} to 180".format(pose_a.total_residue()))
+        pose_a.set_omega(pose_a.total_residue(), 180.)
+        pose_a.pdb_info().chain(
+            pose_a.total_residue(),pose_a.pdb_info().chain(pose_a.total_residue()-1))
+            
+
+    return rebuilt_loop, pose_a
+
+def prepend_n_term(n_term, loop):
+    loop_pose = pyrosetta.pose_from_sequence(loop)
+    pose_a = pyrosetta.Pose()
+    pose_a.assign(n_term)
+    pose_a.pdb_info().assign(n_term.pdb_info())
+
+
+    # Setup CHEMICAL MANAGER TO MAKE NEW RESIDUES
+    chm = pyrosetta.rosetta.core.chemical.ChemicalManager.get_instance()
+    rts = chm.residue_type_set('fa_standard')
+    get_residue_object = lambda x: pyrosetta.rosetta.core.conformation.ResidueFactory.create_residue(
+        rts.name_map(x))
+
+    # Will keep track of indexing of rebuilt loop
+    rebuilt_loop = []
+
+    #print("Setting N Term Pose Residue {} to 180".format(pose_a.total_residue()))
+    #pose_a.set_omega(pose_a.total_residue(), 180.1)
+
+    mutate_position(loop_pose,
+                loop_pose.total_residue(),
+                loop_pose.residue(loop_pose.total_residue()).name3())    
+    ##ADD pose b to the end of Pose A
+    for residue_index in range(1, pose_a.total_residue()+1):
+        loop_pose.append_residue_by_bond(
+            pose_a.residue(residue_index))
+        loop_pose.pdb_info().copy(pose_a.pdb_info(),residue_index,residue_index,loop_pose.total_residue())
+        
+    return rebuilt_loop, loop_pose
+
+
+def enforce_termini(p):
+    #Mutate N Term
+    mutate_position(p,1,'{}:NtermProteinFull'.format(
+      p.residue(1).name3()))
+    
+    l = p.total_residue()
+    mutate_position(p,l,'{}:CtermProteinFull'.format(
+      p.residue(l).name3()))
