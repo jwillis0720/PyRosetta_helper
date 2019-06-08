@@ -19,7 +19,7 @@ from .BluePrintManager import BluePrintEntity
 __all__ = ["GenKic","BluePrintManager",'BluePrintEntity',"get_one_to_three","get_pose_from_pdb_with_chain",
 "get_pose","pose_structure_df","compress_file","score_pose_to_df","score_interface_to_df",
 "get_sphere_sasa","reverse_pose","slice_pose","join_poses","find_current_disulfides","mutate_position",
-"crudely_connect_w_loop", "append_c_term", "prepend_n_term", "enforce_termini"]
+"crudely_connect_w_loop", "append_c_term", "prepend_n_term", "enforce_termini","change_termini"]
 #from . import DeNovoInterface
 one_to_three = {
     'A': 'ALA',
@@ -464,6 +464,8 @@ def prepend_n_term(n_term, loop):
     pose_a = pyrosetta.Pose()
     pose_a.assign(n_term)
     pose_a.pdb_info().assign(n_term.pdb_info())
+    change_termini(loop_pose)
+    change_termini(pose_a)
 
 
     # Setup CHEMICAL MANAGER TO MAKE NEW RESIDUES
@@ -478,16 +480,15 @@ def prepend_n_term(n_term, loop):
     #print("Setting N Term Pose Residue {} to 180".format(pose_a.total_residue()))
     #pose_a.set_omega(pose_a.total_residue(), 180.1)
 
-    mutate_position(loop_pose,
-                loop_pose.total_residue(),
-                loop_pose.residue(loop_pose.total_residue()).name3())    
-    ##ADD pose b to the end of Pose A
+
+
     for residue_index in range(1, pose_a.total_residue()+1):
         loop_pose.append_residue_by_bond(
             pose_a.residue(residue_index))
         loop_pose.pdb_info().copy(pose_a.pdb_info(),residue_index,residue_index,loop_pose.total_residue())
         
-    return rebuilt_loop, loop_pose
+    enforce_termini(loop_pose)
+    return list(range(1,len(loop)+1)), loop_pose
 
 
 def enforce_termini(p):
@@ -497,4 +498,13 @@ def enforce_termini(p):
     
     l = p.total_residue()
     mutate_position(p,l,'{}:CtermProteinFull'.format(
+      p.residue(l).name3()))
+
+def change_termini(p):
+    #Mutate N-C Term to regular residue types
+    mutate_position(p,1,'{}'.format(
+      p.residue(1).name3()))
+    
+    l = p.total_residue()
+    mutate_position(p,l,'{}'.format(
       p.residue(l).name3()))
